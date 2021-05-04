@@ -1,0 +1,37 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'java-library-distribution'
+    id 'com.google.protobuf'version '0.8.13'
+}
+
+sourceCompatibility = '1.8'
+version = 'spring21'
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    api project(':dataflow')
+}
+
+sourceSets {
+    test {
+        java {
+            srcDir 'src/test/java'
+            srcDir project(':dataflow').sourceSets.test.java
+        }
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.fork = true
+}
+
+test {
+    testLogging {
+        exceptionFormat = 'full'
+    }
+}

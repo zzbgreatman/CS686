@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package edu.usfca.protobuf;
+
+// Each mobile device uses either Android or iOS.
+enum OsType {
+  OS_UNSPECIFIED = 0;
+  OS_ANDROID = 1;
+  OS_IOS = 2;
+}
+
+// Device Id uniquely identifies a mobile device.
+// It has $os (Ostype) and either uuid or webid (string), but not both.
+// By convention, we should lower uuid in all our assignmments.
+message DeviceId {
+  OsType os = 1;
+  
+  // Note this "oneof" keyword.
+  oneof id {
+    string uuid = 2; // case-insensitive.
+    string webid = 3; // case-sensitive.
+  }
+}
+
+message SalesEvent {
+  // TODO - Feel free to add more fields, if you want to. However, it's not necessary.
+  // You shouldn't delete any fields or change their field IDs.
+  // Reference solution uses this message as-is.
+  DeviceId id = 1;
+  string bundle = 2; // case-sensitive.
+  int32 amount = 3;
+}
+
+message SalesSummary {
+  // TODO - This proto message shouldn't be modified at all.
+  repeated App top_apps = 1;
+  string window_end = 2;
+  
+  message App {
+    string bundle = 1;
+    int32 amount = 2;
+    int32 cnt_users = 3;
+  }
+}

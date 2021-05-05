@@ -2,12 +2,16 @@ package edu.usfca.dataflow.jobs;
 
 import com.google.api.services.bigquery.model.TableRow;
 import edu.usfca.dataflow.Main;
+import edu.usfca.dataflow.transforms.ComputeSummary;
+import edu.usfca.dataflow.transforms.ConvertToTableRow;
+import edu.usfca.dataflow.transforms.Parser;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.commons.lang3.StringUtils;
+import org.checkerframework.checker.units.qual.C;
 
 public class StreamJob extends PTransform<PBegin, PCollection<TableRow>> {
   final int WINDOW_SIZE_MIN;
@@ -43,6 +47,7 @@ public class StreamJob extends PTransform<PBegin, PCollection<TableRow>> {
     // You will want to use Parser, ComputeSummary, and ConvertToTableRow that you have implemented.
     // FYI, the reference solution is a 1-liner (just a return statement).
 
-    return null;
+    return data.apply(new Parser()).apply(new ComputeSummary(WINDOW_SIZE_MIN)).apply(new ConvertToTableRow(JOB_SIGNATURE));
+
   }
 }

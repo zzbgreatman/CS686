@@ -11,6 +11,8 @@ import org.apache.beam.sdk.values.PCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.stream.Collectors;
+
 public class ConvertToTableRow extends PTransform<PCollection<SalesSummary>, PCollection<TableRow>> {
   private static final Logger LOG = LoggerFactory.getLogger(ConvertToTableRow.class);
 
@@ -32,7 +34,11 @@ public class ConvertToTableRow extends PTransform<PCollection<SalesSummary>, PCo
       @ProcessElement public void process(ProcessContext c) throws InvalidProtocolBufferException {
         TableRow row = new TableRow();
         // TODO -- add values to this object.
-
+        row.set("job_sig", JOB_SIG);
+        row.set("window_end", c.element().getWindowEnd());
+        row.set("top_apps", c.element().getTopAppsList().stream().map(
+            kv -> new TableRow().set("bundle", kv.getBundle()).set("amount", kv.getAmount()).set("cnt_users",kv.getCntUsers()))
+            .collect(Collectors.toList()));
 
         c.output(row);
 

@@ -40,7 +40,13 @@ public class GeneralUtils {
 
     @Override public int compare(App a, App b) {
       // TODO: implement this. You will want to use "descending" flag to determine what to return here.
-      return 0;
+      if (a.getAmount() != b.getAmount()) {
+        return descending ?  b.getAmount() - a.getAmount() : a.getAmount() - b.getAmount();
+      } else if (a.getCntUsers() != b.getCntUsers()) {
+        return descending ?  b.getCntUsers() - a.getCntUsers() : a.getCntUsers() - b.getCntUsers();
+      } else {
+        return descending ? a.getBundle().compareTo(b.getBundle()) : -a.getBundle().compareTo(b.getBundle());
+      }
     }
   }
 

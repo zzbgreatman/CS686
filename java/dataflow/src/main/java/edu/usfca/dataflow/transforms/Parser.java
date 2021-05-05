@@ -1,9 +1,18 @@
 package edu.usfca.dataflow.transforms;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+import edu.usfca.dataflow.utils.ProtoUtils;
 import edu.usfca.protobuf.Common.SalesEvent;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollection.IsBounded;
+import org.joda.time.Duration;
+import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,12 +51,36 @@ public class Parser extends PTransform<PCollection<String>, PCollection<SalesEve
       // You can also add pane info and timestamp, if you want.
       // LOG.info("[Parser] Processed the message: {}", c.element());
 
+      data = input.apply(ParDo.of(new DoFn<String, SalesEvent>() {
+        @ProcessElement public void process(ProcessContext c) {
+          String [] arr = c.element().split(MSG_DELIMITER);
+          try {
+            for (int i = 1; i<arr.length; i++){
+              c.outputWithTimestamp(ProtoUtils.decodeMessageBase64(SalesEvent.parser(),arr[i]), Instant.ofEpochMilli(Long.parseLong(arr[0])));
+            }
+          } catch (InvalidProtocolBufferException e) {
+          }
+        }
+      }));
+
     } else { // Input source is PubSub. No need to explicitly declare timestamp.
       // TODO - in your DoFn, use the following code to produce logs.
       // This will be useful especially when you run a job on Google Dataflow.
       // You can also add pane info and timestamp, if you want.
       // LOG.info("[Parser] Processed the message: {}", c.element());
+
+      data = input.apply(ParDo.of(new DoFn<String, SalesEvent>() {
+        @ProcessElement public void process(ProcessContext c) {
+          String [] arr = c.element().split(MSG_DELIMITER);
+          try {
+            for (String s : arr) {
+              c.output(ProtoUtils.decodeMessageBase64(SalesEvent.parser(), s));
+            }
+          } catch (InvalidProtocolBufferException e) {
+          }
+        }
+      }));
     }
-    return null;
+    return data;
   }
 }

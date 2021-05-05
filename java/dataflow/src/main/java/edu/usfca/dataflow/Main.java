@@ -27,11 +27,11 @@ public class Main {
   private static final Logger LOG = LoggerFactory.getLogger(Main.class);
 
   // TODO: Make sure you change USER_EMAIL below to your @dons email address.
-  final private static String USER_EMAIL = "?";
+  final private static String USER_EMAIL = "zliu128@dons.usfca.edu";
 
   // TODO: Make sure you change the following four to your own settings.
-  public final static String GCP_PROJECT_ID = "cs686-sp21-x48"; // <- TODO
-  public final static String GCS_BUCKET = "gs://usf-my-bucket-x48"; // <- TODO
+  public final static String GCP_PROJECT_ID = "cs686-sp21-x33"; // <- TODO
+  public final static String GCS_BUCKET = "gs://usf-my-bucket-x33"; // <- TODO
 
   public final static String MY_BQ_DATASET = "project6"; // <- TODO - Create this dataset in your project.
 
@@ -55,12 +55,12 @@ public class Main {
 
     // TODO: Replace ?s with right types/mode.
     final TableSchema SCHEMA = new TableSchema().setFields(Arrays.asList(//
-      new TableFieldSchema().setName("job_sig").setType("?").setMode("REQUIRED"), //
-      new TableFieldSchema().setName("window_end").setType("?").setMode("REQUIRED"), //
-      new TableFieldSchema().setName("top_apps").setType("?").setMode("?").setFields(Arrays.asList(//
-        new TableFieldSchema().setName("bundle").setType("?"),//
-        new TableFieldSchema().setName("amount").setType("?"),//
-        new TableFieldSchema().setName("cnt_users").setType("?")//
+      new TableFieldSchema().setName("job_sig").setType("INT64").setMode("REQUIRED"), //
+      new TableFieldSchema().setName("window_end").setType("STRING").setMode("REQUIRED"), //
+      new TableFieldSchema().setName("top_apps").setType("STRUCT").setMode("REPEATED").setFields(Arrays.asList(//
+        new TableFieldSchema().setName("bundle").setType("STRING"),//
+        new TableFieldSchema().setName("amount").setType("INT64"),//
+        new TableFieldSchema().setName("cnt_users").setType("INT64")//
       ))));
 
     switch (options.getJob()) {

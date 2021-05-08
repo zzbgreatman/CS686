@@ -24,6 +24,8 @@ import java.time.Instant;
 import java.util.Arrays;
 
 public class Main {
+  public static final boolean PRINT = true;
+
   private static final Logger LOG = LoggerFactory.getLogger(Main.class);
 
   // TODO: Make sure you change USER_EMAIL below to your @dons email address.

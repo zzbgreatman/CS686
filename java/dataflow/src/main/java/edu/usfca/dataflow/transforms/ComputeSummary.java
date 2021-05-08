@@ -1,8 +1,6 @@
 package edu.usfca.dataflow.transforms;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import edu.usfca.dataflow.utils.GeneralUtils;
-import edu.usfca.dataflow.utils.ProtoUtils;
 import edu.usfca.protobuf.Common;
 import edu.usfca.protobuf.Common.SalesEvent;
 import edu.usfca.protobuf.Common.SalesSummary;
@@ -13,7 +11,6 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,55 +44,88 @@ public class ComputeSummary extends PTransform<PCollection<SalesEvent>, PCollect
                 @ProcessElement public void process(ProcessContext c, BoundedWindow w) {
                     c.output(KV.of(GeneralUtils.formatWindowEnd(w.maxTimestamp().getMillis()), c.element()));
                 }
-            })).apply(Combine.perKey(new Combine.CombineFn<SalesEvent, ArrayList<SalesEvent>, SalesSummary>() {
+            }))
+            .apply(Combine.perKey(new Combine.CombineFn<SalesEvent, HashMap<String, List<SalesEvent>>, SalesSummary>() {
 
-                @Override public ArrayList<SalesEvent> createAccumulator() {
-                    return new ArrayList<>();
+                @Override public HashMap<String, List<SalesEvent>> createAccumulator() {
+                    return new HashMap<>();
                 }
 
                 @Override
-                public ArrayList<SalesEvent> addInput(ArrayList<SalesEvent> mutableAccumulator, SalesEvent input) {
-                    mutableAccumulator.add(input);
+                public HashMap<String, List<SalesEvent>> addInput(HashMap<String, List<SalesEvent>> mutableAccumulator,
+                    SalesEvent input) {
+                    String bundle = input.getBundle();
+                    if (!mutableAccumulator.containsKey(bundle)) {
+                        mutableAccumulator.put(bundle, new ArrayList<>());
+                    }
+                    List<SalesEvent> list = mutableAccumulator.get(bundle);
+                    list.add(input);
                     return mutableAccumulator;
                 }
 
-                @Override public ArrayList<SalesEvent> mergeAccumulators(Iterable<ArrayList<SalesEvent>> accumulators) {
-                    Iterator<ArrayList<SalesEvent>> it = accumulators.iterator();
-                    ArrayList<SalesEvent> result = it.next();
+                @Override public HashMap<String, List<SalesEvent>> mergeAccumulators(
+                    Iterable<HashMap<String, List<SalesEvent>>> accumulators) {
+                    Iterator<HashMap<String, List<SalesEvent>>> it = accumulators.iterator();
+                    HashMap<String, List<SalesEvent>> result = new HashMap<>();
+
                     while (it.hasNext()) {
-                        result.addAll(it.next());
+                        HashMap<String, List<SalesEvent>> now = it.next();
+                        for (String s : now.keySet()) {
+                            if (!result.containsKey(s)) {
+                                result.put(s, new ArrayList<>());
+                            }
+                            ArrayList<SalesEvent> temp = (ArrayList<SalesEvent>) result.get(s);
+                            temp.addAll(now.get(s));
+                        }
                     }
-                    return result;
+
+                    HashMap<String, List<SalesEvent>> resultMap = new HashMap<>();
+
+                    for (String s : result.keySet()) {
+                        Map<Common.DeviceId, Integer> idAmount = new HashMap<>();
+                        ArrayList<SalesEvent> tempList = (ArrayList<SalesEvent>) result.get(s);
+                        ArrayList<SalesEvent> resultMapList = new ArrayList<>();
+
+                        for (SalesEvent e : tempList) {
+                            Common.DeviceId id = GeneralUtils.getNormalized(e).getId();
+                            if (!idAmount.containsKey(id)) {
+                                idAmount.put(id, 0);
+                            }
+                            int tempAmt = idAmount.get(id);
+                            idAmount.put(id, tempAmt + e.getAmount());
+                        }
+
+                        for (Common.DeviceId di : idAmount.keySet()) {
+                            resultMapList.add(
+                                SalesEvent.newBuilder().setBundle(s).setAmount(idAmount.get(di)).setId(di).build());
+                        }
+                        resultMap.put(s, resultMapList);
+                    }
+
+                    return resultMap;
                 }
 
-                @Override public SalesSummary extractOutput(ArrayList<SalesEvent> accumulator) {
+                @Override public SalesSummary extractOutput(HashMap<String, List<SalesEvent>> accumulator) {
                     SalesSummary.Builder sb = SalesSummary.newBuilder();
-                    HashMap<String, Integer> bundleAmountMap = new HashMap<>();
-                    HashMap<String, Set<Common.DeviceId>> bundleCountMap = new HashMap<>();
-                    for (SalesEvent s : accumulator) {
-                        String bundle = s.getBundle();
-                        if (!bundleAmountMap.containsKey(bundle)) {
-                            bundleAmountMap.put(bundle, 0);
+                    for (String s : accumulator.keySet()) {
+                        ArrayList<SalesEvent> tempList = (ArrayList<SalesEvent>) accumulator.get(s);
+                        int ttlAmt = 0;
+                        for (SalesEvent se : tempList) {
+                            ttlAmt += se.getAmount();
                         }
-                        int amount = bundleAmountMap.get(bundle);
-                        bundleAmountMap.put(bundle, amount + s.getAmount());
-                        if (!bundleCountMap.containsKey(bundle)) {
-                            bundleCountMap.put(bundle, new HashSet<>());
-                        }
-                        HashSet<Common.DeviceId> idSet = (HashSet<Common.DeviceId>) bundleCountMap.get(bundle);
-                        idSet.add(Common.DeviceId.newBuilder().setOs(s.getId().getOs())
-                            .setUuid(s.getId().getUuid().toUpperCase()).setWebid(s.getId().getWebid()).build());
+                        sb.addTopApps(
+                            SalesSummary.App.newBuilder().setBundle(s).setAmount(ttlAmt).setCntUsers(tempList.size())
+                                .build());
                     }
 
+                    return sb.build();
+                }
+            })).apply(ParDo.of(new DoFn<KV<String, SalesSummary>, SalesSummary>() {
+                @ProcessElement public void process(ProcessContext c) {
+                    SalesSummary.Builder sb = SalesSummary.newBuilder();
                     List<SalesSummary.App> appArrayList = new ArrayList<>();
-
-                    for (String b : bundleAmountMap.keySet()) {
-                        appArrayList.add(SalesSummary.App.newBuilder().setBundle(b).setAmount(bundleAmountMap.get(b))
-                            .setCntUsers(bundleCountMap.get(b).size()).build());
-                    }
-
+                    appArrayList.addAll(c.element().getValue().getTopAppsList());
                     appArrayList.sort(new GeneralUtils.AppComparator());
-
                     if (appArrayList.size() <= 3) {
                         sb.addAllTopApps(appArrayList);
                     } else {
@@ -103,13 +133,9 @@ public class ComputeSummary extends PTransform<PCollection<SalesEvent>, PCollect
                             sb.addTopApps(appArrayList.get(i));
                         }
                     }
-                    return sb.build();
-                }
-            })).apply(MapElements.via(new SimpleFunction<KV<String, SalesSummary>, SalesSummary>() {
-                @Override public SalesSummary apply(KV<String, SalesSummary> elem) {
-                    return elem.getValue().toBuilder().setWindowEnd(elem.getKey()).build();
+                    sb.setWindowEnd(c.element().getKey());
+                    c.output(sb.build());
                 }
             }));
-
     }
 }

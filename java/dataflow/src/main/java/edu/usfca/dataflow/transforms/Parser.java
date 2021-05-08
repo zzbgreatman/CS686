@@ -1,6 +1,7 @@
 package edu.usfca.dataflow.transforms;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import edu.usfca.dataflow.Main;
 import edu.usfca.dataflow.utils.ProtoUtils;
 import edu.usfca.protobuf.Common.SalesEvent;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -54,9 +55,15 @@ public class Parser extends PTransform<PCollection<String>, PCollection<SalesEve
       data = input.apply(ParDo.of(new DoFn<String, SalesEvent>() {
         @ProcessElement public void process(ProcessContext c) {
           String [] arr = c.element().split(MSG_DELIMITER);
+          if (Main.PRINT) {
+            LOG.info("[Pre-Parse] data [{}]", c.element());
+          }
           try {
             for (int i = 1; i<arr.length; i++){
               c.outputWithTimestamp(ProtoUtils.decodeMessageBase64(SalesEvent.parser(),arr[i]), Instant.ofEpochMilli(Long.parseLong(arr[0])));
+              if (Main.PRINT) {
+                LOG.info("[Parse] data [{}], timestamp [{}]", ProtoUtils.getJsonFromMessage(ProtoUtils.decodeMessageBase64(SalesEvent.parser(),arr[i])), arr[0]);
+              }
             }
           } catch (InvalidProtocolBufferException e) {
           }
@@ -75,6 +82,7 @@ public class Parser extends PTransform<PCollection<String>, PCollection<SalesEve
           try {
             for (String s : arr) {
               c.output(ProtoUtils.decodeMessageBase64(SalesEvent.parser(), s));
+              LOG.info("[Parse] data [{}]", ProtoUtils.decodeMessageBase64(SalesEvent.parser(), s));
             }
           } catch (InvalidProtocolBufferException e) {
           }

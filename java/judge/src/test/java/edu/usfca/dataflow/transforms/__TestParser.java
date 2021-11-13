@@ -34,7 +34,7 @@ public class __TestParser {
   // This is to help the grading system avoid 'hanging forever'
   // If unit tests keep failing due to 'timeout' on your local machine or when you need to use a debugger,
   // you should comment this out (this is only necessary for the grading system).
-  @Rule public Timeout timeout = Timeout.seconds(10);
+  //@Rule public Timeout timeout = Timeout.seconds(10);
 
 
   @Rule public final transient TestPipeline tp = TestPipeline.create();
